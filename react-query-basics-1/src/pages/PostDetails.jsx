@@ -1,7 +1,7 @@
-import { useQuery } from 'react-query'
+import { useMutation, useQuery, useQueryClient } from 'react-query'
 import { useContext, useState } from 'react'
 import * as constants from '../constants'
-import { GetOnePostDetails } from '../backend/Queries'
+import { GetOnePostDetails, UpdatePost } from '../backend/Queries'
 import {
   Button,
   Progress,
@@ -17,15 +17,24 @@ import {
 import { AppContext } from '../context/AppContext'
 
 export const PostDetails = (props) => {
+  const { id } = props.match.params
   const { history } = useContext(AppContext)
 
-  const [postDetails, setPostDetails] = useState({
+  const [postDetailsState, setPostDetailsState] = useState({
     title: '',
     body: '',
   })
 
-  const { id } = props.match.params
-  const { isLoading, isFetching, data, isError } = useQuery(
+  const queryClient = useQueryClient()
+  const mutation = useMutation(UpdatePost, {
+    //(data) => refetch(),
+    onSuccess:
+      // or another idea is using queryCache to refresh the page
+      // when input edits are submitted
+      () => queryClient.invalidateQueries(),
+  })
+
+  const { isLoading, isFetching, data, isError, refetch } = useQuery(
     [constants.QUERY_KEYS.POSTS, { postId: id }],
     GetOnePostDetails,
     {
@@ -33,7 +42,7 @@ export const PostDetails = (props) => {
       retryDelay: 500,
       refetchOnWindowFocus: false,
       onSuccess: (data) => {
-        setPostDetails({
+        setPostDetailsState({
           title: data.title,
           body: data.body,
         })
@@ -44,10 +53,26 @@ export const PostDetails = (props) => {
   const onChangeHandler = (e) => {
     e.persist()
 
-    setPostDetails((existingDetails) => ({
+    setPostDetailsState((existingDetails) => ({
       ...existingDetails,
       [e.target.name]: e.target.value,
     }))
+  }
+  console.log(
+    `mutated obj: ${JSON.stringify(mutation.variables)}, ${JSON.stringify(
+      mutation.data,
+    )}`,
+  )
+  const updatePost = async (_e) => {
+    // e.preventDefault()
+    try {
+      await mutation.mutate({
+        postId: id,
+        body: postDetailsState,
+      })
+    } catch (error) {
+      console.log(`There was an error!! with message: ${error.message}`)
+    }
   }
 
   if (isLoading) {
@@ -80,6 +105,7 @@ export const PostDetails = (props) => {
             <Th>Post Id</Th>
             <Th>Post Title</Th>
             <Th>Post Body</Th>
+            <Th>Update Post</Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -92,7 +118,7 @@ export const PostDetails = (props) => {
                 type="text"
                 onChange={onChangeHandler}
                 name="title"
-                value={postDetails.title}
+                value={postDetailsState.title}
               />
             </Td>
 
@@ -102,8 +128,14 @@ export const PostDetails = (props) => {
                 type="text"
                 name="body"
                 onChange={onChangeHandler}
-                value={postDetails.body}
+                value={postDetailsState.body}
               />
+            </Td>
+
+            <Td>
+              <Button onClick={updatePost} isDisabled={mutation.isLoading}>
+                Update
+              </Button>
             </Td>
           </Tr>
         </Tbody>

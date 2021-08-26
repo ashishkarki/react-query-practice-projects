@@ -13,3 +13,12 @@ export const GetOnePostDetails = async (queryArr) => {
 
   return postDetails.data
 }
+
+export const UpdatePost = async (updatedPostObj) => {
+  const updatedPost = await axios.put(
+    `https://jsonplaceholder.typicode.com/posts/${updatedPostObj.postId}`,
+    updatedPostObj.body,
+  )
+
+  return updatedPost.data
+}
